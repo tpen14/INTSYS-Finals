@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Agri-Aid - Agricultural Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { emerald: { 50: "#f0fdf4", 100: "#dcfce7", 200: "#bbf7d0", 300: "#86efac", 400: "#4ade80", 500: "#10b981", 600: "#059669", 700: "#047857", 800: "#065f46", 900: "#064e3b" } } } }
+        }
+    </script>
+    <style>
+        @media (max-width: 1024px) {
+            .sidebar { position: fixed; left: 0; top: 0; transition: transform 0.3s ease; z-index: 50; }
+            .sidebar.mobile-hidden { transform: translateX(-100%); }
+            .sidebar.mobile-visible { transform: translateX(0); }
+        }
+
+        /* Message Container Spacing */
+        .message-item {
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        /* User Bubble (Right) */
+        .user-container {
+            align-self: flex-end;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            max-width: 85%;
+        }
+
+        .message-bubble-user {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+            word-wrap: break-word;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            animation: slideInRight 0.3s ease;
+            position: relative;
+        }
+
+        /* Bot Bubble (Left) */
+        .bot-container {
+            align-self: flex-start;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            max-width: 90%;
+        }
+
+        .message-bubble-bot {
+            background: white;
+            color: #111827;
+            border: 1px solid #bbf7d0;
+            word-wrap: break-word;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            animation: slideInLeft 0.3s ease;
+        }
+
+        .message-bubble-bot a { color: #059669; text-decoration: underline; font-weight: 600; transition: color 0.2s; }
+        .message-bubble-bot a:hover { color: #047857; }
+
+
+
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+        .pulse-dot { animation: pulse 1.4s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        .source-badge { background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-right: 4px; white-space: nowrap; }
+
+        .source-link { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; font-size: 0.7rem; padding: 0.35rem 0.75rem; border-radius: 0.375rem; cursor: pointer; transition: all 0.2s ease; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .source-link.official { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .source-link.official:hover { background: #dbeafe; border-color: #60a5fa; }
+        .source-link.web { background: #f0fdf4; color: #059669; border: 1px solid #bbf7d0; }
+        .source-link.web:hover { background: #dcfce7; border-color: #10b981; }
+
+        .agency-card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; transition: all 0.3s ease; }
+        .agency-card:hover { border-color: #10b981; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15); }
+
+        .topic-card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 12px; }
+        .topic-card:hover { background: #f0fdf4; border-color: #10b981; transform: translateX(4px); }
+
+        .section-title { font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; margin-top: 20px; }
+
+        .contact-link { color: #10b981; text-decoration: none; font-weight: 600; cursor: pointer; }
+        .contact-link:hover { text-decoration: underline; }
+
+
+
+        @media (max-width: 768px) {
+            .messages-container { padding: 1rem 1rem; }
+            .header { padding: 0.75rem; }
+            .header h1 { font-size: 1.5rem; }
+            .header p { font-size: 0.65rem; }
+
+            .source-link { font-size: 0.65rem; padding: 0.25rem 0.5rem; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 to-emerald-50">
+    <div class="flex h-screen overflow-hidden">
+
+        <div id="sidebar" class="sidebar w-80 bg-white border-r-2 border-emerald-200 flex flex-col overflow-y-auto h-screen z-50 lg:z-40 hidden lg:flex">
+            <div class="sidebar-header bg-gradient-to-r from-emerald-600 to-emerald-500 text-white p-6 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-white/20 p-2 rounded-lg">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-lg">Agri-Aid CAR</h2>
+                            <p class="text-emerald-100 text-xs font-medium">Cordillera Agricultural Assistant</p>
+                        </div>
+                    </div>
+                    <button id="closeSidebar" class="lg:hidden p-2 hover:bg-emerald-700 rounded-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div>
+                    <div class="section-title">Quick Access</div>
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <span class="font-semibold text-emerald-900 text-sm">CAR Agriculture Hub</span>
+                        </div>
+                        <p class="text-xs text-emerald-700">Highland farming resources for Cordillera farmers</p>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title">Cordillera Topics</div>
+                    <div class="space-y-2">
+                        <div class="topic-card" onclick="sendQueryDirectly('Best potato varieties for Benguet highlands')">
+                            <svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700">Highland Potato Farming</span>
+                        </div>
+                        <div class="topic-card" onclick="sendQueryDirectly('Rice terraces farming techniques in Ifugao')">
+                            <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700">Rice Terraces Cultivation</span>
+                        </div>
+                        <div class="topic-card" onclick="sendQueryDirectly('Strawberry farming in La Trinidad')">
+                            <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700">Strawberry Production</span>
+                        </div>
+                        <div class="topic-card" onclick="sendQueryDirectly('Vegetable farming in Atok and Buguias')">
+                            <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700">Highland Vegetables</span>
+                        </div>
+                        <div class="topic-card" onclick="sendQueryDirectly('Coffee growing in Kalinga and Sagada')">
+                            <svg class="w-5 h-5 text-orange-700" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21h18v-2H2v2zM20 8h-2V5h2m0-2h-4v8h4c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM4 14h12v-2L14 8.5V5H4v9.5L2 17v2h12z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700">CAR Coffee Production</span>
+                        </div>
+                        <div class="topic-card" onclick="sendQueryDirectly('Sayote farming in CAR region')">
+                            <svg class="w-5 h-5 text-lime-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm1-13h-2v6l5.25 3.15.75-1.23-4-2.42z"></path></svg>
+                            <span class="text-sm font-medium text-gray-700">Sayote Cultivation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title">CAR Agriculture Offices</div>
+                    <div class="space-y-3">
+                        <div class="agency-card">
+                            <div class="flex items-start gap-3">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center flex-shrink-0 text-emerald-600 font-bold text-sm">DA</div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900 text-sm">DA-CAR Regional Office</h3>
+                                    <p class="text-xs text-gray-600 mt-1">Cordillera Administrative Region</p>
+                                    <div class="text-xs text-gray-600 mt-2"><div>Baguio City, Benguet</div><div>Phone: (074) 424-2258</div></div>
+                                    <a href="https://car.da.gov.ph/" target="_blank" class="contact-link text-xs mt-1 inline-block">Visit Website →</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agency-card">
+                            <div class="flex items-start gap-3">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center flex-shrink-0 text-emerald-600 font-bold text-sm">LT</div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900 text-sm">La Trinidad Trading Post</h3>
+                                    <p class="text-xs text-gray-600 mt-1">Central Market Hub</p>
+                                    <div class="text-xs text-gray-600 mt-2"><div>Km. 5, La Trinidad, Benguet</div><div>Market Hours: 2AM - 6PM</div></div>
+                                    <a href="javascript:sendQueryDirectly('Current vegetable prices at La Trinidad Trading Post')" class="contact-link text-xs mt-1 inline-block">Check Prices →</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agency-card">
+                            <div class="flex items-start gap-3">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center flex-shrink-0 text-emerald-600 font-bold text-sm">BV</div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900 text-sm">Benguet Vegetable Producers</h3>
+                                    <p class="text-xs text-gray-600 mt-1">Federation of Farmers</p>
+                                    <div class="text-xs text-gray-600 mt-2"><div>Cooperative Network</div><div>Highland Agriculture Support</div></div>
+                                    <a href="javascript:sendQueryDirectly('Benguet farmers cooperatives and support')" class="contact-link text-xs mt-1 inline-block">Learn More →</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agency-card">
+                            <div class="flex items-start gap-3">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center flex-shrink-0 text-emerald-600 font-bold text-sm">AT</div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900 text-sm">ATI-CAR</h3>
+                                    <p class="text-xs text-gray-600 mt-1">Agricultural Training Institute</p>
+                                    <div class="text-xs text-gray-600 mt-2"><div>Baguio City</div><div>Training & Extension Services</div></div>
+                                    <a href="https://ati2.da.gov.ph/ati-car/content/" target="_blank" class="contact-link text-xs mt-1 inline-block">Visit Website →</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-emerald-200 p-4 bg-emerald-50 flex-shrink-0">
+                <p class="text-xs text-gray-600 text-center font-medium">Agri-Aid CAR v3.8<br><span class="text-emerald-600">Cordillera Highland Agriculture</span></p>
+            </div>
+        </div>
+
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="closeSidebarFunc()"></div>
+
+        <div class="flex-1 flex flex-col overflow-hidden w-full">
+
+            <div class="header bg-gradient-to-r from-white to-emerald-50 border-b-2 border-emerald-200 px-2 md:px-8 py-3 md:py-4 shadow-sm">
+                <div class="flex items-center justify-between w-full gap-2">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <button id="openSidebar" class="lg:hidden p-2 hover:bg-emerald-100 rounded-lg transition flex-shrink-0">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        </button>
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white p-2 rounded-lg flex-shrink-0">
+                                <svg class="w-5 md:w-6 h-5 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <h1 class="text-xl md:text-3xl font-bold text-gray-900">Agri-Aid</h1>
+                                <p class="text-xs md:text-sm text-emerald-600 font-medium">Agricultural Intelligence</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-emerald-50 rounded-lg border-2 border-emerald-200">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <div class="text-left">
+                            <p class="text-xs text-gray-600 font-semibold">Region</p>
+                            <p class="text-sm font-bold text-gray-900">Cordillera (CAR)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div id="messagesContainer" class="messages-container flex-1 overflow-y-auto px-3 md:px-8 py-4 md:py-6 w-full">
+                <div class="max-w-4xl mx-auto space-y-3 md:space-y-6 w-full">
+                    <div id="welcomeMessage" class="flex items-start gap-3">
+                        <div class="w-8 md:w-10 h-8 md:h-10 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs md:text-sm">A</div>
+                        <div>
+                            <h2 class="text-xl md:text-2xl font-bold text-gray-900">Welcome to Agri-Aid</h2>
+                            <p class="text-sm md:text-base text-gray-700 mt-1 md:mt-2">Your smart agricultural assistant for the <strong>Cordillera Administrative Region (CAR)</strong>. Ask about farming, crops, market prices, weather, government support, and more.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white border-t-2 border-emerald-200 px-3 md:px-8 pt-3 pb-8 md:pt-4 md:pb-8">
+                <div class="max-w-4xl mx-auto w-full">
+                    <div class="flex gap-2 md:gap-3 items-end">
+                        <textarea
+                            id="messageInput"
+                            placeholder="Ask about crops, farming, pests..."
+                            class="flex-1 px-3 md:px-4 py-2 md:py-3 rounded-xl text-sm resize-none max-h-24 border-2 border-emerald-200 focus:border-emerald-500 focus:outline-none"
+                            rows="1"
+                        ></textarea>
+
+                        <button id="sendButton" class="px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white font-medium rounded-lg transition shadow-md hover:shadow-lg flex items-center justify-center gap-1 md:gap-2 flex-shrink-0 h-10 md:h-12">
+                            <svg class="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                            <span class="hidden md:inline">Send</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CITY_TO_PROVINCE = {
+            "Caloocan": "Metro Manila", "Las Piñas": "Metro Manila", "Makati": "Metro Manila", "Malabon": "Metro Manila", "Mandaluyong": "Metro Manila", "Manila": "Metro Manila", "Marikina": "Metro Manila", "Muntinlupa": "Metro Manila", "Navotas": "Metro Manila", "Parañaque": "Metro Manila", "Pasay": "Metro Manila", "Pasig": "Metro Manila", "Quezon City": "Metro Manila", "San Juan": "Metro Manila", "Taguig": "Metro Manila", "Valenzuela": "Metro Manila",
+            "Laoag": "Ilocos Norte", "Batac": "Ilocos Norte", "Vigan": "Ilocos Sur", "Candon": "Ilocos Sur", "San Fernando (La Union)": "La Union", "Alaminos": "Pangasinan", "Dagupan": "Pangasinan", "San Carlos (Pangasinan)": "Pangasinan", "Urdaneta": "Pangasinan",
+            "Tuguegarao": "Cagayan", "Cauayan": "Isabela", "Ilagan": "Isabela", "Santiago": "Isabela", "Tabuk": "Kalinga", "Bayombong": "Nueva Vizcaya",
+            "Balanga": "Bataan", "Malolos": "Bulacan", "Meycauayan": "Bulacan", "San Jose del Monte": "Bulacan", "Cabanatuan": "Nueva Ecija", "Gapan": "Nueva Ecija", "Muñoz": "Nueva Ecija", "Palayan": "Nueva Ecija", "San Jose (Nueva Ecija)": "Nueva Ecija", "Angeles": "Pampanga", "Mabalacat": "Pampanga", "San Fernando (Pampanga)": "Pampanga", "Tarlac City": "Tarlac", "Olongapo": "Zambales",
+            "Batangas City": "Batangas", "Lipa": "Batangas", "Tanauan": "Batangas", "Biñan": "Laguna", "Calamba": "Laguna", "San Pablo": "Laguna", "Santa Rosa": "Laguna", "Antipolo": "Rizal", "Lucena": "Quezon", "Tayabas": "Quezon", "Cavite City": "Cavite", "Dasmariñas": "Cavite", "General Trias": "Cavite", "Imus": "Cavite", "Tagaytay": "Cavite", "Trece Martires": "Cavite",
+            "Calapan": "Oriental Mindoro", "Puerto Princesa": "Palawan",
+            "Legazpi": "Albay", "Ligao": "Albay", "Tabaco": "Albay", "Iriga": "Camarines Sur", "Naga": "Camarines Sur", "Masbate City": "Masbate", "Sorsogon City": "Sorsogon",
+            "Iloilo City": "Iloilo", "Passi": "Iloilo", "Bacolod": "Negros Occidental", "Bago": "Negros Occidental", "Cadiz": "Negros Occidental", "Escalante": "Negros Occidental", "Himamaylan": "Negros Occidental", "Kabankalan": "Negros Occidental", "La Carlota": "Negros Occidental", "Sagay": "Negros Occidental", "San Carlos (Negros Occ.)": "Negros Occidental", "Silay": "Negros Occidental", "Sipalay": "Negros Occidental", "Talisay (Negros Occ.)": "Negros Occidental", "Victorias": "Negros Occidental", "Roxas City": "Capiz", "San Jose de Buenavista": "Antique",
+            "Cebu City": "Cebu", "Carcar": "Cebu", "Danao": "Cebu", "Lapu-Lapu": "Cebu", "Mandaue": "Cebu", "Naga (Cebu)": "Cebu", "Talisay (Cebu)": "Cebu", "Toledo": "Cebu", "Bais": "Negros Oriental", "Bayawan": "Negros Oriental", "Canlaon": "Negros Oriental", "Dumaguete": "Negros Oriental", "Guihulngan": "Negros Oriental", "Tanjay": "Negros Oriental", "Tagbilaran": "Bohol",
+            "Borongan": "Eastern Samar", "Baybay": "Leyte", "Ormoc": "Leyte", "Tacloban": "Leyte", "Maasin": "Southern Leyte", "Catbalogan": "Samar", "Calbayog": "Samar",
+            "Zamboanga City": "Zamboanga del Sur", "Pagadian": "Zamboanga del Sur", "Dipolog": "Zamboanga del Norte", "Dapitan": "Zamboanga del Norte", "Isabela City": "Basilan",
+            "Cagayan de Oro": "Misamis Oriental", "El Salvador": "Misamis Oriental", "Gingoog": "Misamis Oriental", "Oroquieta": "Misamis Occidental", "Ozamiz": "Misamis Occidental", "Tangub": "Misamis Occidental", "Malaybalay": "Bukidnon", "Valencia": "Bukidnon", "Iligan": "Lanao del Norte",
+            "Davao City": "Davao del Sur", "Digos": "Davao del Sur", "Tagum": "Davao del Norte", "Panabo": "Davao del Norte", "Samal": "Davao del Norte", "Mati": "Davao Oriental",
+            "General Santos": "South Cotabato", "Koronadal": "South Cotabato", "Kidapawan": "Cotabato", "Tacurong": "Sultan Kudarat", "Cotabato City": "Maguindanao del Norte",
+            "Butuan": "Agusan del Norte", "Cabarbaran": "Agusan del Norte", "Bayugan": "Agusan del Sur", "Bislig": "Surigao del Sur", "Tandag": "Surigao del Sur", "Surigao City": "Surigao del Norte",
+            "Baguio City": "Benguet", "Bangued": "Abra"
+        };
+
+        const PROVINCES_BY_REGION = {
+            'Region I - Ilocos Region': ['Ilocos Norte', 'Ilocos Sur', 'La Union', 'Pangasinan'],
+            'Region II - Cagayan Valley': ['Batanes', 'Cagayan', 'Isabela', 'Nueva Vizcaya', 'Quirino'],
+            'Region III - Central Luzon': ['Aurora', 'Batangas', 'Bulacan', 'Cavite', 'Laguna', 'Nueva Ecija', 'Pampanga', 'Tarlac', 'Zambales'],
+            'Region IV-A - CALABARZON': ['Cavite', 'Laguna', 'Batangas', 'Rizal', 'Quezon'],
+            'Region IV-B - MIMAROPA': ['Marinduque', 'Mindoro Occidental', 'Mindoro Oriental', 'Palawan', 'Romblon'],
+            'Region V - Bicol Region': ['Albay', 'Camarines Norte', 'Camarines Sur', 'Catanduanes', 'Masbate', 'Sorsogon'],
+            'CAR - Cordillera': ['Abra', 'Apayao', 'Benguet', 'Ifugao', 'Kalinga', 'Mountain Province', 'Nueva Vizcaya'],
+            'NCR - National Capital Region': ['Manila', 'Quezon City', 'Makati', 'Pasig', 'Marikina', 'Caloocan', 'Las Piñas', 'Parañaque', 'Taguig', 'Navotas', 'Malabon', 'Valenzuela'],
+            'Region VI - Western Visayas': ['Aklan', 'Antique', 'Capiz', 'Guimaras', 'Iloilo', 'Negros Occidental'],
+            'Region VII - Central Visayas': ['Bohol', 'Cebu', 'Negros Oriental', 'Siquijor'],
+            'Region VIII - Eastern Visayas': ['Biliran', 'Eastern Samar', 'Leyte', 'Northern Samar', 'Samar', 'Southern Leyte'],
+            'Region IX - Zamboanga Peninsula': ['Zamboanga del Norte', 'Zamboanga del Sur', 'Zamboanga Sibugay'],
+            'Region X - Northern Mindanao': ['Bukidnon', 'Camiguin', 'Lanao del Norte', 'Misamis Occidental', 'Misamis Oriental'],
+            'Region XI - Davao Region': ['Davao del Norte', 'Davao del Sur', 'Davao Occidental', 'Davao Oriental'],
+            'Region XII - SOCCSKSARGEN': ['Cotabato', 'Sarangani', 'South Cotabato', 'Sultan Kudarat'],
+            'Region XIII - CARAGA': ['Agusan del Norte', 'Agusan del Sur', 'Dinagat Islands', 'Surigao del Norte', 'Surigao del Sur']
+        };
+
+        const API_BASE = window.location.hostname === "localhost"
+            ? "http://localhost:8000/api/v1"
+            : "http://" + window.location.hostname + ":8000/api/v1";
+
+
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const sidebar = document.getElementById('sidebar');
+
+        let conversationId = null;
+        let selectedLocation = 'Cordillera Administrative Region, Philippines';
+        let chatStarted = false;
+
+
+
+        document.getElementById('openSidebar').addEventListener('click', () => {
+            sidebar.classList.remove('hidden');
+            document.getElementById('sidebarOverlay').classList.remove('hidden');
+        });
+
+        document.getElementById('closeSidebar').addEventListener('click', closeSidebarFunc);
+
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 96) + 'px';
+        });
+
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendButton.addEventListener('click', sendMessage);
+
+        function insertQuery(query) {
+            messageInput.value = query;
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 96) + 'px';
+            messageInput.focus();
+        }
+
+        function sendQueryDirectly(query) {
+            messageInput.value = query;
+            sendMessage();
+            closeSidebarFunc();
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            if (!chatStarted) {
+                welcomeMessage.style.display = 'none';
+                chatStarted = true;
+            }
+
+            sendButton.disabled = true;
+
+            addMessage(message, 'user');
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'flex items-start gap-2 md:gap-3';
+            loadingDiv.innerHTML = `
+                <div class="w-8 md:w-10 h-8 md:h-10 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs md:text-sm">A</div>
+                <div class="flex gap-1 md:gap-2 mt-1">
+                    <span class="pulse-dot w-2 h-2 bg-emerald-600 rounded-full"></span>
+                    <span class="pulse-dot w-2 h-2 bg-emerald-600 rounded-full" style="animation-delay: 0.2s;"></span>
+                    <span class="pulse-dot w-2 h-2 bg-emerald-600 rounded-full" style="animation-delay: 0.4s;"></span>
+                </div>
+            `;
+            const container = document.createElement('div');
+            container.className = 'max-w-4xl mx-auto w-full message-item';
+            container.appendChild(loadingDiv);
+            messagesContainer.appendChild(container);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            try {
+                const res = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        location: selectedLocation || '',
+                        language: 'en',
+                        conversation_id: conversationId
+                    })
+                });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                conversationId = data.conversation_id;
+
+                container.remove();
+                addMessage(data.response, 'bot', data.sources);
+
+            } catch (error) {
+                container.remove();
+                addMessage(`Error: ${error.message}`, 'bot', []);
+            } finally {
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        function addMessage(text, sender, sources = []) {
+            const messageDiv = document.createElement('div');
+            const container = document.createElement('div');
+            container.className = 'max-w-4xl mx-auto w-full message-item';
+
+            if (sender === 'user') {
+                messageDiv.className = 'user-container';
+                messageDiv.innerHTML = `<div class="message-bubble-user max-w-xs md:max-w-md rounded-2xl rounded-tr-none p-2 md:p-3"><p class="text-sm whitespace-pre-wrap">${escapeHtml(text)}</p></div>`;
+            } else {
+                messageDiv.className = 'bot-container';
+
+                let sourceHtml = '';
+                if (sources && sources.length > 0) {
+                    sourceHtml = '<div class="mt-2 md:mt-3 pt-2 border-t border-emerald-200 flex flex-col gap-2">';
+                    sourceHtml += '<div class="flex gap-1 md:gap-2 flex-wrap items-start">';
+                    sourceHtml += '<span class="source-badge">Sources:</span>';
+                    sourceHtml += '<div class="flex gap-1 md:gap-2 flex-wrap">';
+
+                    sources.forEach((source, idx) => {
+                        let title = "";
+                        let url = "";
+
+                        if (typeof source === 'object') {
+                            title = source.title || source.url;
+                            url = source.url;
+                        } else if (typeof source === 'string') {
+                            url = source;
+                            title = source.replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '').split('/')[0];
+                        }
+
+                        if (url) {
+                            sourceHtml += `
+                                <a href="${escapeUrl(url)}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="source-link"
+                                   title="Click to verify source">
+                                    ${escapeHtml(title)}
+                                </a>`;
+                        }
+                    });
+                    sourceHtml += '</div></div></div>';
+                }
+
+                messageDiv.innerHTML = `
+                    <div class="w-8 md:w-10 h-8 md:h-10 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs md:text-sm">A</div>
+                    <div class="message-bubble-bot max-w-xs md:max-w-md rounded-2xl rounded-tl-none p-2 md:p-3">
+                        <div class="text-sm whitespace-pre-wrap">${formatResponseText(text)}</div>
+                        ${sourceHtml}
+                    </div>
+                `;
+            }
+
+            container.appendChild(messageDiv);
+            messagesContainer.appendChild(container);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function escapeUrl(url) {
+            try {
+                new URL(url);
+                return url;
+            } catch (e) {
+                console.error("Invalid URL: " + url);
+                return "#";
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatResponseText(text) {
+            if (!text) return "";
+            let formatted = escapeHtml(text).replace(
+                /\[([^\]]+)\]\(([^)]+)\)/g,
+                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+            );
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/^\* (.*$)/gm, '• $1');
+            return formatted;
+        }
+
+        function closeSidebarFunc() {
+            sidebar.classList.add('hidden');
+            document.getElementById('sidebarOverlay').classList.add('hidden');
+        }
+
+        messageInput.focus();
+    </script>
+</body>
+</html>

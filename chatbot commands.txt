@@ -1,0 +1,36 @@
+AGRI-AID CAR - STARTUP COMMANDS
+================================
+
+Prerequisites:
+- Python 3.11 installed
+- Ollama installed with models: llama3.1:8b and llava
+- Virtual environment created at .venv
+
+Quick Start (Run these in separate terminals):
+
+Terminal 1 - Ollama Service:
+----------------------------
+ollama serve
+
+Terminal 2 - Backend API Server:
+---------------------------------
+cd c:\Users\Admin\Downloads\Agri-aid-main\backend
+..\\.venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+Terminal 3 - Frontend Web Server:
+----------------------------------
+cd c:\Users\Admin\Downloads\Agri-aid-main\frontend
+python -m http.server 3000 --bind 0.0.0.0
+
+Access the Application:
+------------------------
+Frontend: http://localhost:3000
+Backend API: http://localhost:8000
+API Docs: http://localhost:8000/docs
+
+Troubleshooting:
+----------------
+- If "ModuleNotFoundError": Activate virtual environment first
+- If Ollama not responding: Run "ollama list" to check models
+- If port in use: Change port numbers in commands above           
