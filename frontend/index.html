@@ -378,6 +378,10 @@
         }
 
         function sendQueryDirectly(query) {
+            // Prevent sending if a message is already being processed
+            if (sendButton.disabled) {
+                return;
+            }
             messageInput.value = query;
             sendMessage();
             closeSidebarFunc();
